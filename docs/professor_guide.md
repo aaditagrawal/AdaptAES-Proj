@@ -1,179 +1,188 @@
-# AdaptAES: a five-minute project walkthrough
+# AdaptAES: a five-minute professor walkthrough
 
-AdaptAES asks a small, testable question: how much time can we save by choosing
-AES rounds from a packet's payload size, and how do the resulting ciphertext
-statistics compare with full AES-128?
+The research question is whether traffic-aware message aggregation can reduce
+processing and record overhead under a fixed queueing budget. All three policies
+use the same full-round AES-128-GCM implementation and 128-bit authentication tags.
 
-The deliverable is a Python experiment with reproducible inputs, working
-encryption and decryption, measured results, and graphs. The size thresholds
-are an experimental policy, not a security rating for different packet sizes.
+The original idea changed AES rounds by packet size. It is retained as an insecure
+comparison. This pivot moves adaptation into record scheduling, where its costs
+and benefits can be measured without weakening the cipher.
 
-## 1. Explain the experiment
+## 1. Explain what adapts
 
 ```mermaid
 flowchart LR
-    A[Six anonymized PCAPs] --> B[Extract TCP/UDP payload lengths]
-    B --> C[Seeded synthetic plaintexts]
-    C --> D[AES-10 / AES-4 / AdaptAES]
-    D --> E[Verify decrypted plaintext]
-    E --> F[Repeat and measure timings]
-    G[Same random blocks, keys and bit flips] --> H[Compare 4 / 6 / 8 / 10 rounds]
-    F --> I[Performance graphs]
-    H --> J[Statistical comparison graph]
+    A[Six capture-derived traces] --> B[Sizes + timestamps + directional flows]
+    B --> C[Seeded synthetic message bytes]
+    C --> D{Policy}
+    D --> E[Immediate: send each message]
+    D --> F[Fixed: up to 8 messages]
+    D --> G[Adaptive: size + arrival gap]
+    E --> H[Full-round AES-GCM record]
+    F --> H
+    G --> H
+    H --> I[Authenticate and reconstruct messages]
 ```
 
-The original packet contents are unavailable. We preserve their lengths and
-supply deterministic random bytes of those lengths. The separate block
-comparison holds inputs and keys constant across round counts.
+Messages can share a record only within the same directional flow. Here a flow is
+identified by protocol, source/destination addresses, and source/destination ports.
+The benchmark maps those identities to numeric IDs; it does not publish addresses
+in its result files.
 
-| Method | What changes? | Why include it? |
-|---|---|---|
-| Standard AES-128 | Always 10 rounds | Correctness and timing baseline |
-| Fixed reduced AES | Always 4 rounds | Fastest reduced-round comparison |
-| AdaptAES | 4, 6, 8, or 10 rounds | Test the packet-size policy |
+A captured transport payload is treated as one synthetic message. This is a
+workload model, not TCP application-message reconstruction or live packet encryption.
 
-| Original payload bytes | 1–128 | 129–512 | 513–1024 | Above 1024 |
-|---|---:|---:|---:|---:|
-| AdaptAES rounds | 4 | 6 | 8 | 10 |
+| Policy | What determines when a record is released? |
+|---|---|
+| Immediate | The message's arrival time |
+| Fixed | Eight messages, 16 KiB of framed data, or the oldest message's 1 ms deadline |
+| Adaptive | The same bounds, with a target based on size and the previous per-flow arrival gap |
 
-Round selection uses the original length, before PKCS#7 padding. Decryption
-uses that same original length to select the same rounds.
+For adaptive mode, messages above 512 bytes bypass waiting. Smaller messages use
+`min(8, 1 + floor(queue_budget / max(previous_gap, 1 ns)))` as the target. New flows
+start with a target of eight. These are documented heuristic choices, not learned
+or globally optimal thresholds. A new arrival never extends an existing deadline.
 
-## 2. Start with the traffic distribution
+Oversized messages bypass aggregation as singletons, up to the record format's
+64 KiB body limit. At trace end, outstanding batches still wait for their deadline;
+knowing that an offline file ended does not create a free early flush.
 
-![Traffic distribution and selected rounds](../results/classroom/plots/traffic_distribution.png)
+## 2. Show the security boundary
 
-About two thirds of payload packets fall above 1,024 bytes and therefore use
-all 10 rounds. That explains why a large speedup for small packets does not
-translate into a large overall speedup. Large payloads also contain more blocks
-and account for more encryption work.
+```text
+Authenticated outer header: version [4 B] | flow ID [4 B] | sequence/nonce [12 B]
+Encrypted body:             length [4 B] | message | length [4 B] | message ...
+Authentication tag:        full 16 B
+```
 
-## 3. Show the performance comparison
+The complete outer header is authenticated as associated data. Length prefixes
+are inside the authenticated ciphertext. The receiver verifies the tag before
+parsing or returning plaintext, checks the expected flow and sequence, and only
+then releases reconstructed messages. Missing, duplicate, or reordered records
+are rejected in this ordered-stream experiment.
 
-![Encryption time by payload size](../results/classroom/plots/encryption_by_size.png)
+Each trial creates a fresh random AES-128 key. A monotonically increasing 96-bit
+counter supplies nonces within that trial. Key generation is outside timing;
+framing, nonce construction and tag checks are inside timing. The codec deliberately
+has no API for importing/reusing keys across sessions.
 
-![Decryption time by payload size](../results/classroom/plots/decryption_by_size.png)
+This prototype has no key exchange, persisted session state, or retransmission
+layer. A missing record stalls ordered reception until it is supplied. A larger
+record also means more messages are affected together by loss. It is not a claim
+that a complete deployed network protocol has been proven secure.
 
-Read each group as the same payload-size range under the three methods. For
-each payload and method, the runner warms up once, rotates method order, and
-records the median of five timed repetitions. It verifies every decrypted
-result. The bars average those per-payload medians within each range.
+## 3. Explain the capture-derived results
 
-![AdaptAES time savings by size and overall](../results/classroom/plots/adaptive_savings.png)
+![Measured CPU and record overhead](../results/aggregation/plots/capture_tradeoffs.png)
 
-Positive values mean less encryption time than AES-10. The recorded run saves
-about 54%, 42%, and 18% in the three reduced-round ranges. Overall AdaptAES was
-about 2.6% slower in this run. Most work still uses 10 rounds, and small overall
-differences can reflect machine noise. We should present this result rather
-than promise a universal speedup.
+The sample is the first 5,000 nonempty payload rows of each capture, stably sorted
+by timestamp. Its 30,000 messages contain 59,946,242 payload bytes. This is a
+chronological-prefix experiment, not the random sample used in the older AES study.
 
-## 4. Demonstrate statistical similarity
-
-![Matched-input avalanche and entropy comparison](../results/comparison/round_comparison.png)
-
-Each round count sees the same 512 independent random plaintext blocks and
-keys. The same randomly selected plaintext bit and key bit are flipped for
-each matched sample. This avoids comparing different input populations or
-counting an identical AES-4/AdaptAES measurement twice as independent evidence.
-
-| Measurement | How to explain it | What to look for |
-|---|---|---|
-| Plaintext avalanche | Flip one of 128 plaintext bits and count changed ciphertext bits | Approximately half, or 64 bits |
-| Key avalanche | Flip one key bit and repeat | Approximately half again |
-| Pooled byte entropy | Count byte values across all 512 ciphertext blocks | Close to the byte maximum of 8 bits |
-| Error bars | Uncertainty in the measured average avalanche | Approximate 95% intervals across independent samples |
-
-The entropy calculation pools 8,192 ciphertext bytes per round count. Older
-analysis in `results/analysis/` averages entropy over individual 16-byte blocks,
-where the empirical maximum is 4. Those values answer a different question and
-should not be compared directly with the new pooled entropy.
-
-Individual means and intervals need not include exactly 50%. In this seeded
-run, the six-round plaintext mean is about 49.34%. The comparison is descriptive;
-it is not a formal statistical equivalence test.
-
-A defensible sentence for the viva is:
-
-> In these matched-input tests, reduced-round configurations have avalanche
-> averages near 50% and pooled byte entropy near full AES. This demonstrates
-> similar behavior in the selected statistical measurements. It does not
-> establish equal resistance to cryptanalytic attacks.
-
-The implementation encrypts blocks independently. It has no authentication or
-network protocol and is a lab experiment. Ciphertext that passes these tests
-can still have weaknesses that the tests do not measure.
-
-## 5. Separate cipher policy from code optimization
-
-![AES implementation before and after optimization](../results/classroom/plots/implementation_speed.png)
-
-This graph holds the cipher at 10 rounds on both sides. The implementation now
-looks up fixed finite-field products and expands a key once per payload instead
-of once per block. The statistical analysis also reuses identical measurements
-when two methods choose the same round count.
-
-| AES-10 workload | Before | After | Measured speedup |
+| Policy | Records | Record overhead bytes | Processing CPU per message |
 |---|---:|---:|---:|
-| Encrypt 1,024 bytes | 14.09 ms | 2.49 ms | 5.67× |
-| Decrypt 1,024 bytes | 25.36 ms | 2.43 ms | 10.44× |
+| Immediate | 30,000 | 1,200,000 | 5.83 us |
+| Fixed | 22,024 | 912,864 | 5.54 us |
+| Adaptive | 28,778 | 1,156,008 | 6.08 us |
 
-These are interleaved medians of 21 repetitions on one machine, using the same
-Python 3.14.8 interpreter. CPU timings are recorded alongside wall timings in
-[`comparison.json`](../results/runtime/comparison.json). Interpreter launch and
-module execution were measured separately at 18.76 ms before and 19.46 ms after.
-The optimization claim concerns the encryption workload, not startup or package
-installation. Other machines will produce different absolute timings.
+Counts and bytes are summed across captures. CPU per message is the sum of the
+six median processing CPU times divided by 30,000. The sample gives equal weight
+to each capture, rather than weighting by the full capture's packet count.
 
-## Know which population each result describes
+Fixed batching saves about 24% of record overhead. Including payload bytes, that
+is about 0.47% fewer total record bytes. Adaptive batching saves about 3.7% of
+overhead and uses more CPU than immediate encryption here. The defensible result
+is that the tradeoff depends on traffic and policy; this heuristic does not win
+on every workload.
 
-| Stage | Coverage | Evidence |
-|---|---:|---|
-| Capture extraction | 4,587,976 packets; 2,355,051 nonempty payloads | `results/extracted/` |
-| Deterministic generation | 5,000 per capture; 30,000 total | `results/payloads/` summaries and hashes |
-| Classroom timing | 50 per capture; 300 total, all three methods | `results/classroom/timings/` |
-| Matched block comparison | 512 independent inputs, all four round counts | `results/comparison/` |
-| Original payload statistical analysis | 30,000 payloads, first block of each | `results/analysis/` |
+The record overhead formula is `36 * records + 4 * messages`: a 20-byte header
+and a 16-byte tag per record, plus a four-byte length per message. Transport
+headers are excluded. Small-message workloads have more to gain from amortizing
+these fixed costs than workloads dominated by large messages.
 
-Timing counts per size bucket are 53, 24, 19, and 204. These are a small lab
-sample, particularly in the middle ranges. Equal sample counts per capture
-also differ from weighting captures by their total traffic volume.
+![Queueing and aggregation achieved](../results/aggregation/plots/capture_queueing.png)
 
-## Reproduce the classroom demo
+Both batching policies stay within the configured 1 ms modeled waiting budget.
+Their p95 waiting time reaches that budget in every capture. This matters when
+explaining the overhead saving: it comes with buffering, not for free.
 
-Python 3.11+ and [uv](https://docs.astral.sh/uv/) are required. Only plotting needs
-third-party dependencies; the cipher, tests, and timing runner use the standard
-library.
+Queueing delay means record release time minus message arrival time in the trace.
+It does not include a simulated CPU backlog, network time, retransmission, or peer
+processing. Measured CPU/wall time and modeled waiting are separate outputs.
+
+## 4. Use controlled examples to explain why
+
+![Controlled burst and sparse workloads](../results/aggregation/plots/controlled_examples.png)
+
+Both examples contain 1,024 64-byte messages in one flow. The burst has 10 us
+between arrivals; the sparse case has 5 ms between arrivals. They are illustrations,
+not additional HIKARI captures.
+
+In the burst, fixed and adaptive batching both produce 128 records and reduce
+record overhead from 40,960 to 8,704 bytes. Their modeled p95 waiting time is
+70 us. In sparse traffic, fixed batching waits 1 ms without reducing record count.
+Adaptive mode bypasses waiting after observing the first sparse gap; its p95
+waiting time is zero, although the first message still waits up to 1 ms.
+
+These examples show an opportunity for adaptation without claiming that the
+current threshold choices are optimal. A sensible follow-up is to select thresholds
+on one group of flows and evaluate them on held-out flows or captures.
+
+## 5. Reproduce and interpret the measurement
 
 ```bash
 uv sync --frozen --extra plots
 uv run python -m unittest discover -s scripts -v
-uv run python scripts/compare_rounds.py
-uv run python scripts/generate_classroom_graphs.py
+uv run python scripts/generate_aggregation_graphs.py
 ```
 
-These commands use checked-in timing/runtime results and regenerate the graphs.
-No raw PCAPs are needed. To rerun timings from the checked-in extracted lengths:
+These commands regenerate the graphs from recorded results. To run new measurements:
 
 ```bash
-uv run python scripts/generate_plaintext_payloads.py \
-  --input-dir results/extracted --out-dir results/payloads --sample-size 5000 --seed 42
-uv run python scripts/validate_generated_payloads.py --payload-dir results/payloads
-uv run python scripts/benchmark_dataset_timings.py \
-  --payload-dir results/payloads --out-dir results/classroom/timings --limit 50 --repeats 5
-uv run python scripts/generate_classroom_graphs.py
+uv run python scripts/benchmark_aggregation.py --limit 5000 --repeats 11
+uv run python scripts/generate_aggregation_graphs.py
 ```
 
-The generator's recorded hashes reproduce with seed 42. Timing values vary
-with machine load. Generated binaries and manifests remain local.
+Each workload has one warm-up per policy and eleven timed repetitions in rotating
+policy order. Every trial uses a fresh key and verifies message conservation and
+exact authenticated reconstruction. Processing time includes scheduling, framing,
+encryption and decryption. Key generation, synthetic-data generation, source-file
+hashing and correctness comparisons are excluded.
 
-To reproduce the implementation before/after measurement:
+The CSV includes per-stage CPU and wall times, processing throughput, record
+counts, overhead, flush reasons, p50/p95/p99/max modeled waiting, and the maximum
+messages affected by losing one record. The JSON records source hashes, seed,
+configuration, Python/platform and cryptography versions. Numeric flow IDs stay
+local to each capture.
+
+To explore a different waiting budget, write a separate result directory:
 
 ```bash
-git show 3ff4a89:scripts/aes_core.py > /tmp/adaptaes-before.py
-uv run python scripts/benchmark_runtime.py --baseline-core /tmp/adaptaes-before.py
-uv run python scripts/generate_classroom_graphs.py
+uv run python scripts/benchmark_aggregation.py \
+  --max-delay-us 100 --out-dir results/aggregation-100us
+uv run python scripts/generate_aggregation_graphs.py --results-dir results/aggregation-100us
 ```
 
-For the viva, show the flow diagram, traffic mix, timing savings, then the
-matched-input comparison. Finish by explaining why favorable byte statistics
-are useful evidence for this assignment but do not prove cipher security.
+The recorded run used Python 3.14.8 and cryptography 50.0.2. Native AES-GCM is used
+for every policy. A speed difference from the old pure-Python AES scripts would
+mix implementation and algorithm changes, so it is not used as evidence for
+aggregation.
+
+The closing viva statement can be:
+
+> We preserved full-round authenticated encryption and moved adaptation to
+> per-flow record scheduling. Batching reduced overhead on these traces, but
+> introduced waiting. Our adaptive heuristic helped the controlled sparse/burst
+> cases and did not beat immediate encryption's CPU cost on the captures.
+
+## Research context and historical comparison
+
+Dynamic record sizing already exists. The college contribution is the explicit
+policy, reproducible trace evaluation, and measured tradeoff, not a new cipher
+or a claim to have invented batching. See [s2n-tls record sizing](https://aws.github.io/s2n-tls/usage-guide/ch08-record-sizes.html)
+and [NIST's AES-GCM specification](https://csrc.nist.gov/pubs/sp/800/38/d/final).
+
+The [original reduced-round report](AdaptAES_full_project_report.md) and
+`results/comparison/round_comparison.png` retain the original experiment.
+Reduced rounds and unauthenticated independent-block encryption are insecure
+controls. Similar entropy or avalanche scores do not repair those weaknesses.
