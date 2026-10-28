@@ -2,9 +2,8 @@
 
 import unittest
 
-from cryptography.exceptions import InvalidTag
-
 from authenticated_records import HEADER, MAX_BODY, RecordCipher
+from cryptography.exceptions import InvalidTag
 
 
 class RecordTests(unittest.TestCase):
