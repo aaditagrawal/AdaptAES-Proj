@@ -3,7 +3,9 @@ name = "adaptaes"
 version = "0.1.0"
 description = "A college experiment comparing fixed and packet-size-adaptive AES rounds"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "cryptography>=46,<51",
+]
 
 [project.optional-dependencies]
 plots = ["matplotlib>=3.10,<4", "pillow>=13"]
