@@ -14,6 +14,27 @@ The main objective is to measure the performance impact of adaptive AES round se
 
 > Important: this project measures timing and statistical indicators such as avalanche effect, entropy, chi-square, and correlation. It does not claim to prove full cryptanalytic security equivalence between reduced-round AES and standard AES-128.
 
+## Start here for evaluation
+
+Read the [five-minute professor guide](docs/professor_guide.md) for the experiment
+flow, current performance graphs, a matched-input statistical comparison, and
+short explanations for the viva.
+
+```bash
+uv sync --frozen --extra plots
+uv run python -m unittest discover -s scripts -v
+uv run python scripts/compare_rounds.py
+uv run python scripts/generate_classroom_graphs.py
+```
+
+![Performance by payload size](results/classroom/plots/adaptive_savings.png)
+
+![Matched-input statistical comparison](results/comparison/round_comparison.png)
+
+The classroom run uses 300 payloads with five timed repetitions per method.
+The separate statistical comparison uses the same 512 independent blocks and
+keys at every round count. These are different sample populations.
+
 ## Project Summary
 
 Standard AES-128 uses a fixed 10-round structure for every block of input. This project tests a lightweight adaptive idea: smaller network payloads are encrypted with fewer rounds, while larger payloads receive more rounds, and very large payloads use the full 10 rounds.
@@ -68,7 +89,11 @@ TCP payload length = IP total length - IP header length - TCP header length
 UDP payload length = UDP length - 8
 ```
 
-## Current Results Snapshot
+## Original results snapshot
+
+These timing results predate the implementation optimizations. The updated
+classroom results and their interpretation are in the [professor guide](docs/professor_guide.md).
+The extracted dataset totals are unchanged.
 
 Extracted dataset totals:
 
@@ -133,15 +158,11 @@ results/plots/
 
 ## Setup
 
-Use Python 3.10+.
-
-Most scripts use the Python standard library. Graph generation requires Matplotlib.
-
-Create a local virtual environment:
+Use Python 3.11+ and uv. The core experiment has no runtime dependencies.
+Matplotlib and its image dependencies are optional and locked for plotting.
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install matplotlib
+uv sync --frozen --extra plots
 ```
 
 The repository ignores `.venv/`, raw PCAPs, and generated payload binaries.
@@ -166,7 +187,7 @@ data/raw/Tuesday_2021-03-30.anonymized.pcap
 ### Step 2: Extract Payload Lengths
 
 ```bash
-python3 scripts/batch_extract_payload_lengths.py \
+uv run python scripts/batch_extract_payload_lengths.py \
   --pcap-dir data/raw \
   --out-dir results/extracted
 ```
@@ -183,7 +204,7 @@ results/extracted/*_summary.json
 Default: generate 5,000 payloads per extracted CSV.
 
 ```bash
-python3 scripts/generate_plaintext_payloads.py \
+uv run python scripts/generate_plaintext_payloads.py \
   --input-dir results/extracted \
   --out-dir results/payloads \
   --sample-size 5000 \
@@ -202,7 +223,7 @@ results/payloads/combined_payload_summary.json
 ### Step 4: Validate Generated Payloads
 
 ```bash
-python3 scripts/validate_generated_payloads.py \
+uv run python scripts/validate_generated_payloads.py \
   --payload-dir results/payloads
 ```
 
@@ -211,7 +232,7 @@ python3 scripts/validate_generated_payloads.py \
 The pure-Python AES implementation is intentionally educational and can be slow, so the benchmark uses a limit per dataset.
 
 ```bash
-python3 scripts/benchmark_dataset_timings.py \
+uv run python scripts/benchmark_dataset_timings.py \
   --payload-dir results/payloads \
   --out-dir results/timings \
   --limit 50
@@ -229,7 +250,7 @@ results/timings/combined_timing_summary.json
 ### Step 6: Run Combined Statistical Analysis
 
 ```bash
-python3 scripts/security_performance_analysis.py \
+uv run python scripts/security_performance_analysis.py \
   --payload-dir results/payloads \
   --timing-dir results/timings \
   --out-dir results/analysis
@@ -250,19 +271,19 @@ results/analysis/security_performance_summary.json
 Dataset and timing tables:
 
 ```bash
-python3 scripts/print_research_results.py
+uv run python scripts/print_research_results.py
 ```
 
 Combined timing and statistical-indicator tables:
 
 ```bash
-python3 scripts/print_analysis_results.py
+uv run python scripts/print_analysis_results.py
 ```
 
 ### Step 8: Generate Graphs
 
 ```bash
-.venv/bin/python scripts/generate_graphs.py
+uv run python scripts/generate_graphs.py
 ```
 
 Outputs:
@@ -280,9 +301,9 @@ results/plots/graph5_security_metrics_vs_rounds.png
 If the result files already exist, use these commands for a quick project demo:
 
 ```bash
-python3 scripts/print_research_results.py
-python3 scripts/print_analysis_results.py
-.venv/bin/python scripts/generate_graphs.py
+uv run python scripts/print_research_results.py
+uv run python scripts/print_analysis_results.py
+uv run python scripts/generate_graphs.py
 ```
 
 Then open:
