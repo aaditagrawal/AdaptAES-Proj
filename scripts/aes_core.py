@@ -98,35 +98,39 @@ def gmul(a, b):
     return result
 
 
+# Fixed field products avoid repeating eight-step multiplication in every round.
+GF_MUL = {factor: tuple(gmul(value, factor) for value in range(256))
+          for factor in (2, 3, 9, 11, 13, 14)}
+
 def mix_single_column(column):
     a = column[:]
 
     column[0] = (
-        gmul(a[0], 2) ^
-        gmul(a[1], 3) ^
+        GF_MUL[2][a[0]] ^
+        GF_MUL[3][a[1]] ^
         a[2] ^
         a[3]
     )
 
     column[1] = (
         a[0] ^
-        gmul(a[1], 2) ^
-        gmul(a[2], 3) ^
+        GF_MUL[2][a[1]] ^
+        GF_MUL[3][a[2]] ^
         a[3]
     )
 
     column[2] = (
         a[0] ^
         a[1] ^
-        gmul(a[2], 2) ^
-        gmul(a[3], 3)
+        GF_MUL[2][a[2]] ^
+        GF_MUL[3][a[3]]
     )
 
     column[3] = (
-        gmul(a[0], 3) ^
+        GF_MUL[3][a[0]] ^
         a[1] ^
         a[2] ^
-        gmul(a[3], 2)
+        GF_MUL[2][a[3]]
     )
 
     return column
@@ -161,31 +165,31 @@ def inv_mix_columns(state):
         a3 = state[4 * c + 3]
 
         result[4 * c] = (
-            gmul(a0, 14) ^
-            gmul(a1, 11) ^
-            gmul(a2, 13) ^
-            gmul(a3, 9)
+            GF_MUL[14][a0] ^
+            GF_MUL[11][a1] ^
+            GF_MUL[13][a2] ^
+            GF_MUL[9][a3]
         )
 
         result[4 * c + 1] = (
-            gmul(a0, 9) ^
-            gmul(a1, 14) ^
-            gmul(a2, 11) ^
-            gmul(a3, 13)
+            GF_MUL[9][a0] ^
+            GF_MUL[14][a1] ^
+            GF_MUL[11][a2] ^
+            GF_MUL[13][a3]
         )
 
         result[4 * c + 2] = (
-            gmul(a0, 13) ^
-            gmul(a1, 9) ^
-            gmul(a2, 14) ^
-            gmul(a3, 11)
+            GF_MUL[13][a0] ^
+            GF_MUL[9][a1] ^
+            GF_MUL[14][a2] ^
+            GF_MUL[11][a3]
         )
 
         result[4 * c + 3] = (
-            gmul(a0, 11) ^
-            gmul(a1, 13) ^
-            gmul(a2, 9) ^
-            gmul(a3, 14)
+            GF_MUL[11][a0] ^
+            GF_MUL[13][a1] ^
+            GF_MUL[9][a2] ^
+            GF_MUL[14][a3]
         )
 
     return result
