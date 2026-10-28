@@ -106,7 +106,13 @@ def read_timings(path: Path) -> dict[tuple[str, int, str], dict[str, float]]:
 
 def summarize(rows: list[dict[str, object]], timings: dict[tuple[str, int, str], dict[str, float]],
               max_payloads: int | None) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
-    selected = rows if max_payloads is None else rows[:max_payloads]
+    selected = []
+    counts = Counter()
+    for row in rows:
+        name = row["dataset_name"]
+        if max_payloads is None or counts[name] < max_payloads:
+            selected.append(row)
+            counts[name] += 1
     security = []
     performance: dict[tuple[str, str], list[dict[str, float]]] = defaultdict(list)
     mode_rounds = {"standard_aes_10": 10, "fixed_reduced_aes_4": 4}
