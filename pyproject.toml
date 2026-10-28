@@ -1,7 +1,7 @@
 [project]
 name = "adaptaes"
 version = "0.1.0"
-description = "A college experiment comparing fixed and packet-size-adaptive AES rounds"
+description = "A trace-driven college experiment in bounded-delay authenticated aggregation"
 requires-python = ">=3.11"
 dependencies = [
     "cryptography>=46,<51",
