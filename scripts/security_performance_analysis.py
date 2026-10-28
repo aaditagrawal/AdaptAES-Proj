@@ -121,8 +121,9 @@ def summarize(rows: list[dict[str, object]], timings: dict[tuple[str, int, str],
         group = bucket(size)
         chosen = 4 if size <= 128 else 6 if size <= 512 else 8 if size <= 1024 else 10
         round_for_mode = {**mode_rounds, "adaptaes": chosen}
+        round_metrics = {rounds: metrics(payload, rounds) for rounds in set(round_for_mode.values())}
         for mode, rounds in round_for_mode.items():
-            sec = metrics(payload, rounds)
+            sec = round_metrics[rounds]
             security.append({"dataset_name": item["dataset_name"], "payload_id": pid,
                              "payload_length": size, "payload_bucket": group,
                              "mode": mode, "rounds": rounds, **sec})
