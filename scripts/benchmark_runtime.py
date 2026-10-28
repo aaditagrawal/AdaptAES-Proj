@@ -46,8 +46,8 @@ def main():
         for label, module in (("before", baseline), ("after", aes_core)):
             ciphertext = module.encrypt_data(payload, key)
             assert module.decrypt_data(ciphertext, key) == payload
-            operations[f"{label}_encryption"] = lambda m=module: m.encrypt_data(payload, key)
-            operations[f"{label}_decryption"] = lambda m=module, c=ciphertext: m.decrypt_data(c, key)
+            operations[f"{label}_encryption"] = lambda m=module, p=payload, k=key: m.encrypt_data(p, k)
+            operations[f"{label}_decryption"] = lambda m=module, c=ciphertext, k=key: m.decrypt_data(c, k)
         rows.append({"payload_bytes": size, **measure(operations, args.repeats)})
     startup = measure({label: lambda p=path: subprocess.run(
         [sys.executable, "-c", "import runpy,sys; runpy.run_path(sys.argv[1])", str(p)], check=True)
