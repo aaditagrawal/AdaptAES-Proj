@@ -262,8 +262,10 @@ def encrypt_block(block, key, rounds=10):
     if rounds < 1 or rounds > 10:
         raise ValueError("Rounds must be between 1 and 10.")
 
-    round_keys = expand_key(key)
+    return _encrypt_block(block, expand_key(key), rounds)
 
+
+def _encrypt_block(block, round_keys, rounds):
     state = list(block)
 
     # Initial AddRoundKey
@@ -298,8 +300,10 @@ def decrypt_block(block, key, rounds=10):
     if rounds < 1 or rounds > 10:
         raise ValueError("Rounds must be between 1 and 10.")
 
-    round_keys = expand_key(key)
+    return _decrypt_block(block, expand_key(key), rounds)
 
+
+def _decrypt_block(block, round_keys, rounds):
     state = list(block)
 
     # Undo final round
@@ -351,7 +355,10 @@ def unpad_data(data):
 # ARBITRARY-LENGTH DATA
 # -----------------------------
 
-def encrypt_data(data, key):
+def encrypt_data(data, key, rounds=10):
+    if not 1 <= rounds <= 10:
+        raise ValueError("Rounds must be between 1 and 10.")
+    round_keys = expand_key(key)
     padded_data = pad_data(data)
 
     ciphertext = bytearray()
@@ -359,10 +366,10 @@ def encrypt_data(data, key):
     for i in range(0, len(padded_data), 16):
         block = padded_data[i:i + 16]
 
-        encrypted_block = encrypt_block(
+        encrypted_block = _encrypt_block(
             block,
-            key,
-            rounds=10
+            round_keys,
+            rounds
         )
 
         ciphertext.extend(encrypted_block)
@@ -370,7 +377,10 @@ def encrypt_data(data, key):
     return bytes(ciphertext)
 
 
-def decrypt_data(ciphertext, key):
+def decrypt_data(ciphertext, key, rounds=10):
+    if not 1 <= rounds <= 10:
+        raise ValueError("Rounds must be between 1 and 10.")
+    round_keys = expand_key(key)
     if len(ciphertext) % 16 != 0:
         raise ValueError("Ciphertext length must be a multiple of 16.")
 
@@ -379,10 +389,10 @@ def decrypt_data(ciphertext, key):
     for i in range(0, len(ciphertext), 16):
         block = ciphertext[i:i + 16]
 
-        decrypted_block = decrypt_block(
+        decrypted_block = _decrypt_block(
             block,
-            key,
-            rounds=10
+            round_keys,
+            rounds
         )
 
         plaintext.extend(decrypted_block)
