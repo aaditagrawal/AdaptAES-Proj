@@ -1,5 +1,7 @@
 # AdaptAES: Packet-Size Adaptive Round Reduction for AES
 
+> This report records the original experiment before code optimization. For the updated classroom run, matched-input statistical comparison, and viva walkthrough, use the [professor guide](professor_guide.md).
+
 ## 1. Project Overview
 
 **AdaptAES** is an information security lab project that evaluates whether AES encryption time can be reduced for network-traffic payloads by dynamically selecting the number of AES rounds according to packet payload size.
