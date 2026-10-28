@@ -1,12 +1,6 @@
 # aes_adaptive.py
 
-from aes_core import (
-    encrypt_block,
-    decrypt_block,
-    encrypt_data,
-    decrypt_data
-)
-
+from aes_core import decrypt_block, decrypt_data, encrypt_block, encrypt_data
 
 # -----------------------------
 # ADAPTIVE ROUND SELECTION

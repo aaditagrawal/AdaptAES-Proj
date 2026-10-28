@@ -25,7 +25,6 @@ from aes_adaptive import adaptaes_decrypt, adaptaes_encrypt
 from aes_core import decrypt_data, encrypt_data
 from aes_reduced import reduced_aes_decrypt, reduced_aes_encrypt
 
-
 KEY = bytes.fromhex("000102030405060708090a0b0c0d0e0f")
 
 

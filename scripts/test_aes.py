@@ -4,7 +4,13 @@ import random
 import unittest
 
 from aes_adaptive import adaptaes_decrypt, adaptaes_encrypt, select_rounds
-from aes_core import decrypt_block, decrypt_data, encrypt_block, encrypt_data, unpad_data
+from aes_core import (
+    decrypt_block,
+    decrypt_data,
+    encrypt_block,
+    encrypt_data,
+    unpad_data,
+)
 from aes_reduced import reduced_aes_decrypt, reduced_aes_encrypt
 
 
