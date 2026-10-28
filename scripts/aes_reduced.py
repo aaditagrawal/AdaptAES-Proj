@@ -1,4 +1,4 @@
-# aes_reduced.py
+"""Insecure fixed four-round AES comparison for the historical experiment."""
 
 from aes_core import decrypt_block, decrypt_data, encrypt_block, encrypt_data
 

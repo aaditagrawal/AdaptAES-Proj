@@ -1,4 +1,4 @@
-# aes_adaptive.py
+"""Insecure reduced-round comparison; the current experiment uses authenticated_records."""
 
 from aes_core import decrypt_block, decrypt_data, encrypt_block, encrypt_data
 

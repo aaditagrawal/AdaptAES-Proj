@@ -1,6 +1,6 @@
 # AdaptAES: Packet-Size Adaptive Round Reduction for AES
 
-> This report records the original experiment before code optimization. For the updated classroom run, matched-input statistical comparison, and viva walkthrough, use the [professor guide](professor_guide.md).
+> Archived reduced-round experiment. These configurations are insecure comparisons; favorable statistical scores do not establish security. The current research uses full-round AES-GCM aggregation. See the [professor guide](professor_guide.md).
 
 ## 1. Project Overview
 
