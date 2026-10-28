@@ -2,8 +2,8 @@
 name = "adaptaes"
 version = "0.1.0"
 description = "A college experiment comparing fixed and packet-size-adaptive AES rounds"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-plots = ["matplotlib>=3.10,<4"]
+plots = ["matplotlib>=3.10,<4", "pillow>=13"]
