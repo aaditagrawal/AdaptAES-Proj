@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import platform
 import statistics
 import time
 from collections import defaultdict
@@ -326,6 +327,7 @@ def main() -> None:
         "payload_limit_per_dataset": args.limit,
         "repeats": args.repeats,
         "timing_statistic": "Per-payload median after one warm-up; rotating mode order.",
+        "environment": {"python": platform.python_version(), "platform": platform.platform()},
         "aggregate_modes": combine_mode_summaries(summaries),
         "bucket_summary_csv": str(bucket_summary_csv),
         "bucket_summary": bucket_summary,
