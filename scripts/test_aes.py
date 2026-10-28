@@ -15,6 +15,15 @@ from aes_reduced import reduced_aes_decrypt, reduced_aes_encrypt
 
 
 class AESTests(unittest.TestCase):
+    def test_reduced_round_outputs_unchanged(self):
+        # Regression values from the original educational implementation.
+        expected = {4: "6a9a894caa06dd37f05a3061a6fe9f3a",
+                    6: "b6e3b9ede3d146f398a2c823ede4c224",
+                    8: "795fa5f512e0dacf6dbeea9358a87e47"}
+        block = bytes.fromhex("00112233445566778899aabbccddeeff")
+        for rounds, ciphertext in expected.items():
+            self.assertEqual(encrypt_block(block, bytes(range(16)), rounds).hex(), ciphertext)
+
     def test_known_answers(self):
         vectors = (
             ("000102030405060708090a0b0c0d0e0f", "00112233445566778899aabbccddeeff",
