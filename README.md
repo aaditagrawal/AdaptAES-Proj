@@ -137,11 +137,10 @@ Use Python 3.10+.
 
 Most scripts use the Python standard library. Graph generation requires Matplotlib.
 
-Create a local virtual environment:
+Install the locked plotting dependencies with uv:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install matplotlib
+uv sync --frozen
 ```
 
 The repository ignores `.venv/`, raw PCAPs, and generated payload binaries.
@@ -166,7 +165,7 @@ data/raw/Tuesday_2021-03-30.anonymized.pcap
 ### Step 2: Extract Payload Lengths
 
 ```bash
-python3 scripts/batch_extract_payload_lengths.py \
+uv run --frozen python scripts/batch_extract_payload_lengths.py \
   --pcap-dir data/raw \
   --out-dir results/extracted
 ```
@@ -183,7 +182,7 @@ results/extracted/*_summary.json
 Default: generate 5,000 payloads per extracted CSV.
 
 ```bash
-python3 scripts/generate_plaintext_payloads.py \
+uv run --frozen python scripts/generate_plaintext_payloads.py \
   --input-dir results/extracted \
   --out-dir results/payloads \
   --sample-size 5000 \
@@ -202,7 +201,7 @@ results/payloads/combined_payload_summary.json
 ### Step 4: Validate Generated Payloads
 
 ```bash
-python3 scripts/validate_generated_payloads.py \
+uv run --frozen python scripts/validate_generated_payloads.py \
   --payload-dir results/payloads
 ```
 
@@ -211,7 +210,7 @@ python3 scripts/validate_generated_payloads.py \
 The pure-Python AES implementation is intentionally educational and can be slow, so the benchmark uses a limit per dataset.
 
 ```bash
-python3 scripts/benchmark_dataset_timings.py \
+uv run --frozen python scripts/benchmark_dataset_timings.py \
   --payload-dir results/payloads \
   --out-dir results/timings \
   --limit 50
@@ -229,7 +228,7 @@ results/timings/combined_timing_summary.json
 ### Step 6: Run Combined Statistical Analysis
 
 ```bash
-python3 scripts/security_performance_analysis.py \
+uv run --frozen python scripts/security_performance_analysis.py \
   --payload-dir results/payloads \
   --timing-dir results/timings \
   --out-dir results/analysis
@@ -250,19 +249,19 @@ results/analysis/security_performance_summary.json
 Dataset and timing tables:
 
 ```bash
-python3 scripts/print_research_results.py
+uv run --frozen python scripts/print_research_results.py
 ```
 
 Combined timing and statistical-indicator tables:
 
 ```bash
-python3 scripts/print_analysis_results.py
+uv run --frozen python scripts/print_analysis_results.py
 ```
 
 ### Step 8: Generate Graphs
 
 ```bash
-.venv/bin/python scripts/generate_graphs.py
+uv run --frozen python scripts/generate_graphs.py
 ```
 
 Outputs:
@@ -280,9 +279,9 @@ results/plots/graph5_security_metrics_vs_rounds.png
 If the result files already exist, use these commands for a quick project demo:
 
 ```bash
-python3 scripts/print_research_results.py
-python3 scripts/print_analysis_results.py
-.venv/bin/python scripts/generate_graphs.py
+uv run --frozen python scripts/print_research_results.py
+uv run --frozen python scripts/print_analysis_results.py
+uv run --frozen python scripts/generate_graphs.py
 ```
 
 Then open:
