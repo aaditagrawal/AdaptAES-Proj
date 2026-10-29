@@ -1,0 +1,8 @@
+[project]
+name = "adaptaes-proj"
+version = "0.1.0"
+description = "Packet-size-adaptive AES lab analysis and plotting tools"
+requires-python = ">=3.10"
+dependencies = [
+    "matplotlib>=3.10.9",
+]
